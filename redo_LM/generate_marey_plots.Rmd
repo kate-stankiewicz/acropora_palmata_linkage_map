@@ -1,0 +1,330 @@
+---
+title: "Lifted_over_marey"
+author: "Kate Stankiewicz"
+date: "1/26/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(stringr)
+library(gridExtra)
+library(purrr)
+library(tidyverse)
+library(patchwork)
+library(MareyMap)
+library(cowplot)
+```
+
+```{r}
+#read in each LG dataset
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\redo_LM\\7_Distances")
+
+ldf_affy <- list() 
+list <- list.files(pattern = "mapped.ordered.*", full.names = F) 
+for (k in 1:length(list)){
+ ldf_affy[[k]] <- read.csv(file = list[k], sep = "\t", header = F, check.names = F, comment.char = "#", colClasses = c("character", "integer", "numeric","numeric","character","character"))
+}
+
+names(ldf_affy) <- gsub(".txt","", dir(pattern = "mapped.order"), fixed = TRUE)
+names(ldf_affy) <- gsub("mapped.ordered.","LG", names(ldf_affy), fixed = TRUE)
+
+```
+
+
+```{r}
+#drop the irrelevant columns
+dropped_extra <- lapply(ldf_affy, function(x) x[,-c(5,6)])
+
+#rename the columns
+new_colnames <- c("Apalm_CHR", "Apalm_POS", "female_pos", "male_pos")
+
+for (i in seq_along(dropped_extra)){
+  colnames(dropped_extra[[i]]) <- new_colnames
+}
+
+```
+
+
+```{r}
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\redo_LM")
+
+plot_lst <- vector("list", length = 14)
+for (i in seq(dropped_extra)) {
+  gg <- ggplot(dropped_extra[[i]], aes(x=Apalm_POS, y=female_pos, color=Apalm_CHR)) +geom_point() + labs(x = "A. palmata physical pos (bp)", y = "female genetic pos (cM)") +
+    ggtitle(names(dropped_extra[i]))
+  ggsave(gg, filename=paste("re_7_female",names(dropped_extra[i]),".pdf",sep=""), device = "pdf")
+  plot_lst[[i]] <- gg
+}
+
+cow_p <- cowplot::plot_grid(plotlist = plot_lst, nrow = 4)
+```
+
+
+
+```{r}
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\redo_LM")
+
+plot_lst2 <- vector("list", length = 14)
+for (i in seq(dropped_extra)) {
+  gg2 <- ggplot(dropped_extra[[i]], aes(x=Apalm_POS, y=male_pos, color=Apalm_CHR)) +geom_point() + labs(x = "A. palmata physical pos (bp)", y = "male genetic pos (cM)") +
+    ggtitle(names(dropped_extra[i]))
+  ggsave(gg2, filename=paste("re_7_male",names(dropped_extra[i]),".pdf",sep=""), device = "pdf")
+  plot_lst2[[i]] <- gg2
+}
+
+cow_p2 <- cowplot::plot_grid(plotlist = plot_lst2, nrow = 4)
+```
+
+
+```{r}
+#add column to ID which scaffold is the main chromosome for each linkage group
+add_max <- lapply(dropped_extra, function(x) cbind(x, max = names(table(x[c('Apalm_CHR')])[table(x[c('Apalm_CHR')])==max(table(x[c('Apalm_CHR')]))])))
+
+#remove markers hitting to scaffolds other than the main CHR for each linkage group
+remove_nonMain <- lapply(add_max, function(x) x[x[c('Apalm_CHR')] == x[c('max')],])
+```
+
+
+```{r}
+#flip orientation in backwards LGs
+flip_all <- remove_nonMain
+LGs_to_flip <- c(1,2,3,5,7,9,10,11,12,14)
+
+for (i in LGs_to_flip) {
+  flip_all[[i]]$gen_male <- abs(flip_all[[i]]$male_pos - max(flip_all[[i]]$male_pos))
+  flip_all[[i]]$gen_female <- abs(flip_all[[i]]$female_pos - max(flip_all[[i]]$female_pos)) 
+}
+
+```
+
+```{r}
+#create duplicate column in non-backwards LGs so that names match the flipped ones
+rename <- c(4,6,8,13)
+for (i in rename){
+  flip_all[[i]]$gen_male <- flip_all[[i]]$male_pos
+  flip_all[[i]]$gen_female <- flip_all[[i]]$female_pos
+}
+
+```
+
+```{r}
+#plot the flipped LGs
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\redo_LM")
+
+
+plot_lst_f <- vector("list", length = 14)
+for (i in seq(flip_all)) {
+  ggf <- ggplot(flip_all[[i]], aes(x=Apalm_POS, y=gen_female, color=Apalm_CHR)) +geom_point() + labs(x = "A. palmata physical pos (bp)", y = "female genetic pos (cM)") +
+    ggtitle(names(flip_all[i]))
+  ggsave(ggf, filename=paste("flip_main_female",names(flip_all[i]),".pdf",sep=""), device = "pdf")
+  plot_lst_f[[i]] <- ggf
+}
+
+cow_pf <- cowplot::plot_grid(plotlist = plot_lst_f, nrow = 4)
+
+plot_lst2_f <- vector("list", length = 14)
+for (i in seq(flip_all)) {
+  gg2f <- ggplot(flip_all[[i]], aes(x=Apalm_POS, y=gen_male, color=Apalm_CHR)) +geom_point() + labs(x = "A. palmata physical pos (bp)", y = "male genetic pos (cM)") +
+    ggtitle(names(flip_all[i]))
+  ggsave(gg2f, filename=paste("flip_main_male",names(flip_all[i]),".pdf",sep=""), device = "pdf")
+  plot_lst2_f[[i]] <- gg2f
+}
+
+cow_p2f <- cowplot::plot_grid(plotlist = plot_lst2_f, nrow = 4)
+
+```
+
+```{r}
+#add columns needed to MareyMap package
+for (i in seq(flip_all)){
+  flip_all[[i]]$mkr <- paste(flip_all[[i]]$Apalm_CHR, flip_all[[i]]$Apalm_POS, sep = "_")
+  
+}
+```
+
+```{r}
+#convert dataframe list into one big df
+marey_all <- do.call("rbind", flip_all)
+```
+
+```{r}
+#reformat to be in MareyMap package format
+marey_all$set <- "Apalm"
+marey_female <- marey_all %>% select(set, Apalm_CHR, mkr, Apalm_POS, gen_female)
+marey_male <- marey_all %>% select(set, Apalm_CHR, mkr, Apalm_POS, gen_male)
+
+marey_female_MM <- marey_female %>% rename(gen = gen_female, map = Apalm_CHR, phys = Apalm_POS)
+marey_male_MM <- marey_male %>% rename(gen = gen_male, map = Apalm_CHR, phys = Apalm_POS)
+```
+
+```{r}
+#write out the MareyMap format files to test files
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\redo_LM")
+write.table(marey_female_MM, file = "female_MM.txt", row.names=F)
+write.table(marey_male_MM, file = "male_MM.txt", row.names=F)
+```
+
+## Sex averaged map section
+```{r}
+#read in each LG dataset
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\redo_LM\\7_DistancesSexAverage")
+
+ldf_affy_SA <- list() 
+list <- list.files(pattern = "mapped.ordered.*", full.names = F) 
+for (k in 1:length(list)){
+ ldf_affy_SA[[k]] <- read.csv(file = list[k], sep = "\t", header = F, check.names = F, comment.char = "#", colClasses = c("character", "integer", "numeric","numeric","character","character"))
+}
+
+names(ldf_affy_SA) <- gsub(".txt","", dir(pattern = "mapped.order"), fixed = TRUE)
+names(ldf_affy_SA) <- gsub("mapped.ordered.","LG", names(ldf_affy_SA), fixed = TRUE)
+
+```
+
+
+```{r}
+#drop the irrelevant columns
+dropped_extra_SA <- lapply(ldf_affy_SA, function(x) x[,-c(5,6)])
+
+#rename the columns
+new_colnames <- c("Apalm_CHR", "Apalm_POS", "sexav_pos", "sex_avg_pos")
+
+for (i in seq_along(dropped_extra_SA)){
+  colnames(dropped_extra_SA[[i]]) <- new_colnames
+}
+
+```
+
+
+```{r}
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\redo_LM")
+
+plot_lst_SA <- vector("list", length = 14)
+for (i in seq(dropped_extra_SA)) {
+  gg_SA <- ggplot(dropped_extra_SA[[i]], aes(x=Apalm_POS, y=female_pos, color=Apalm_CHR)) +geom_point() + labs(x = "A. palmata physical pos (bp)", y = "genetic pos (cM)") +
+    ggtitle(names(dropped_extra_SA[i]))
+  ggsave(gg_SA, filename=paste("sex_avg",names(dropped_extra_SA[i]),".pdf",sep=""), device = "pdf")
+  plot_lst_SA[[i]] <- gg_SA
+}
+
+cow_p_SA <- cowplot::plot_grid(plotlist = plot_lst_SA, nrow = 4)
+
+```
+
+
+```{r}
+#add column to ID which scaffold is the main chromosome for each linkage group
+add_max_SA <- lapply(dropped_extra_SA, function(x) cbind(x, max = names(table(x[c('Apalm_CHR')])[table(x[c('Apalm_CHR')])==max(table(x[c('Apalm_CHR')]))])))
+
+#remove markers hitting to scaffolds other than the main CHR for each linkage group
+remove_nonMain_SA <- lapply(add_max_SA, function(x) x[x[c('Apalm_CHR')] == x[c('max')],])
+```
+
+```{r}
+#flip orientation in backwards LGs
+flip_all_SA <- remove_nonMain_SA
+LGs_to_flip_SA <- c(1,2,3,5,7,9,10,11,12,14)
+
+for (i in LGs_to_flip_SA) {
+  flip_all_SA[[i]]$gen_sexavg <- abs(flip_all_SA[[i]]$sexav_pos - max(flip_all_SA[[i]]$sexav_pos)) 
+}
+
+```
+
+```{r}
+#create duplicate column in non-backwards LGs so that names match the flipped ones
+rename_SA <- c(4,6,8,13)
+for (i in rename_SA){
+  flip_all_SA[[i]]$gen_sexavg <- flip_all_SA[[i]]$sexav_pos
+}
+
+```
+
+```{r}
+#plot the flipped LGs
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\redo_LM")
+
+
+plot_lst_f_SA <- vector("list", length = 14)
+for (i in seq(flip_all_SA)) {
+  ggf_SA <- ggplot(flip_all_SA[[i]], aes(x=Apalm_POS, y=gen_female, color=Apalm_CHR)) +geom_point() + labs(x = "A. palmata physical pos (bp)", y = "genetic pos (cM)") +
+    ggtitle(names(flip_all_SA[i]))
+  ggsave(ggf_SA, filename=paste("flip_sex_avg",names(flip_all_SA[i]),".pdf",sep=""), device = "pdf")
+  plot_lst_f_SA[[i]] <- ggf_SA
+}
+
+cow_pf_SA <- cowplot::plot_grid(plotlist = plot_lst_f_SA, nrow = 4)
+
+```
+
+```{r}
+#add columns needed to MareyMap package
+for (i in seq(flip_all_SA)){
+  flip_all_SA[[i]]$mkr <- paste(flip_all_SA[[i]]$Apalm_CHR, flip_all_SA[[i]]$Apalm_POS, sep = "_")
+  
+}
+```
+
+```{r}
+#convert dataframe list into one big df
+marey_all_SA <- do.call("rbind", flip_all_SA)
+```
+
+```{r}
+#reformat to be in MareyMap package format
+marey_all_SA$set <- "Apalm"
+marey_SA <- marey_all_SA %>% select(set, Apalm_CHR, mkr, Apalm_POS, gen_female)
+
+marey_rename_SA <- marey_SA %>% rename(gen = gen_female, map = Apalm_CHR, phys = Apalm_POS)
+```
+
+```{r}
+#write out the MareyMap format files to test files
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\redo_LM")
+write.table(marey_rename_SA, file = "sex_avg_MM.txt", row.names=F)
+
+```
+
+```{r}
+#start up MareyMap GUI and import the text files
+startMareyMapGUI()
+
+```
+
+```{r}
+merged_all_fliped <- Map(merge, flip_all, flip_all_SA, MoreArgs= list(by=c("Apalm_CHR", "Apalm_POS"), all=TRUE))
+
+```
+
+```{r}
+#drop the irrelevant columns
+clean_merged_all_flipped <- lapply(merged_all_fliped, function(x) x[,-c(3,4,5,8,9,10)])
+
+melted_all <- lapply(clean_merged_all_flipped, function(x) melt(x, id =c("Apalm_CHR", "Apalm_POS")))
+
+```
+
+```{r}
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\redo_LM")
+
+plot_lst_all <- vector("list", length = 14)
+for (i in seq(melted_all)) {
+  gg2_all <- ggplot(melted_all[[i]], aes(x=(Apalm_POS/1000000), y=value)) +geom_point(aes(color = variable)) + labs(x = "A. palmata physical pos (Mb)", y = "Genetic pos (cM)") +
+    ggtitle(names(melted_all[i]))
+  ggsave(gg2_all, filename=paste("all_maps_fliped",names(melted_all[i]),".pdf",sep=""), device = "pdf")
+  plot_lst_all[[i]] <- gg2_all
+}
+
+cow_p_all <- cowplot::plot_grid(plotlist = plot_lst_all, nrow = 4)
+```
+
+
+
+
+

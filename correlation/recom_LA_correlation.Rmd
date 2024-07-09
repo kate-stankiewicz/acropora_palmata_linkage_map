@@ -1,0 +1,528 @@
+---
+title: "recomb_LA_correlation"
+author: "Kate Stankiewicz"
+date: "3/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+```
+
+
+```{r}
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap/cat_beds")
+
+list_ap = list.files(path="C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap/cat_beds", pattern = "palm_*", full.names = F )
+apalm <- lapply(list_ap, function(x) read.table(x, header = F))
+
+names(apalm) <- gsub(".txt","", dir(pattern = "palm_*"), fixed = TRUE)
+
+
+list_ac = list.files(path="C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap/cat_beds", pattern = "cerv_*", full.names = F )
+acerv <- lapply(list_ac, function(x) read.table(x, header = F))
+
+names(acerv) <- gsub(".txt","", dir(pattern = "cerv_*"), fixed = TRUE)
+
+list_re = list.files(path="C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap/cat_beds", pattern = "rec_*", full.names = F )
+
+recom<- lapply(list_re, function(x) read.table(x, header = F))
+
+names(recom) <- gsub(".txt","", dir(pattern = "rec_*"), fixed = TRUE)
+
+```
+
+
+```{r}
+for (i in seq_along(apalm)){
+  colnames(apalm[[i]]) <- c("chrom", "start", "end", "palm")
+}
+
+for (i in seq_along(acerv)){
+  colnames(acerv[[i]]) <- c("chrom", "start", "end", "cerv")
+}
+
+for (i in seq_along(recom)){
+  colnames(recom[[i]]) <- c("chrom", "start", "end", "rec")
+}
+
+```
+
+
+```{r}
+list2env(apalm ,.GlobalEnv)
+list2env(acerv ,.GlobalEnv)
+list2env(recom ,.GlobalEnv)
+
+```
+
+```{r}
+ap_ac_1mb <- merge(palm_1mb, cerv_1mb, by.y=c("chrom", "start", "end"))
+ap_ac_40kb <- merge(palm_40kb, cerv_40kb, by.y=c("chrom", "start", "end"))
+ap_ac_25kb <- merge(palm_25kb, cerv_25kb, by.y=c("chrom", "start", "end"))
+
+all_1mb <- merge(ap_ac_1mb, rec_1mb, by.y=c("chrom", "start", "end"))
+all_40kb <- merge(ap_ac_40kb, rec_40kb, by.y=c("chrom", "start", "end"))
+all_25kb <- merge(ap_ac_25kb, rec_25kb, by.y=c("chrom", "start", "end"))
+
+```
+
+
+```{r}
+all_1mb[all_1mb == "."] <- NA 
+all_40kb[all_40kb == "."] <- NA
+all_25kb[all_25kb == "."] <- NA
+
+all_1mb_no_na <- na.omit(all_1mb)
+all_40kb_no_na <- na.omit(all_40kb)
+all_25kb_no_na <- na.omit(all_25kb)
+
+all_1mb_no_na$rec <- as.numeric(as.character(all_1mb_no_na$rec))
+all_1mb_no_na$palm <- as.numeric(as.character(all_1mb_no_na$palm))
+all_1mb_no_na$cerv <- as.numeric(as.character(all_1mb_no_na$cerv))
+
+all_40kb_no_na$rec <- as.numeric(as.character(all_40kb_no_na$rec))
+all_40kb_no_na$palm <- as.numeric(as.character(all_40kb_no_na$palm))
+all_40kb_no_na$cerv <- as.numeric(as.character(all_40kb_no_na$cerv))
+
+all_25kb_no_na$rec <- as.numeric(as.character(all_25kb_no_na$rec))
+all_25kb_no_na$palm <- as.numeric(as.character(all_25kb_no_na$palm))
+all_25kb_no_na$cerv <- as.numeric(as.character(all_25kb_no_na$cerv))
+```
+
+
+
+```{r}
+corr_mat_1mb <- cor(all_1mb_no_na[,c(4:6)], use= "pairwise", method = "spearman")
+corr_mat_40kb <- cor(all_40kb_no_na[,c(4:6)], use= "pairwise", method = "spearman")
+corr_mat_25kb <- cor(all_25kb_no_na[,c(4:6)], use= "pairwise", method = "spearman")
+
+```
+
+
+```{r}
+corr_mat_1mb_test <- cor.test(all_1mb_no_na$palm, all_1mb_no_na$rec, method = "spearman")
+corr_mat_40kb_test <- cor.test(all_40kb_no_na$palm, all_40kb_no_na$rec, method = "spearman")
+corr_mat_25kb_test <- cor.test(all_25kb_no_na$palm, all_25kb_no_na$rec, method = "spearman")
+
+```
+
+```{r}
+rec_1mb[rec_1mb == "."] <- NA
+rec_40kb[rec_40kb == "."] <-NA
+rec_25kb[rec_25kb == "."] <- NA
+
+rec_1mb_na <- na.omit(rec_1mb)
+rec_40kb_na <- na.omit(rec_40kb)
+rec_25kb_na <- na.omit(rec_25kb)
+
+rec_1mb_na$rec <- as.numeric(as.character(rec_1mb_na$rec))
+rec_40kb_na$rec <- as.numeric(as.character(rec_40kb_na$rec))
+rec_25kb_na$rec <- as.numeric(as.character(rec_25kb_na$rec))
+```
+
+
+```{r}
+top_1mb <- rec_1mb_na %>% select(chrom, start, end, rec) %>% group_by(chrom) %>% arrange(chrom, start, end, desc(rec)) %>% filter(rec > quantile(rec, 0.99))
+top_40kb <- rec_40kb_na %>% select(chrom, start, end, rec) %>% group_by(chrom) %>% arrange(chrom, start, end, desc(rec)) %>% filter(rec > quantile(rec, 0.99))
+top_25kb <- rec_25kb_na %>% select(chrom, start, end, rec) %>% group_by(chrom) %>% arrange(chrom, start, end, desc(rec)) %>% filter(rec > quantile(rec, 0.99))
+```
+
+```{r}
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap/cat_beds")
+write.table(top_1mb, "top_1mb.txt", quote = F, sep = "\t", col.names = F, row.names = F)
+write.table(top_40kb, "top_40kb.txt", quote = F, sep = "\t", col.names = F, row.names = F)
+write.table(top_25kb, "top_25kb.txt", quote = F, sep = "\t", col.names = F, row.names = F)
+```
+
+
+```{r}
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap/max_bedtools")
+
+rec_raw_loess <- read.table("NA_clean_rec.bed", header = F)
+
+colnames(rec_raw_loess) <- c("chrom", "start", "end", "rec")
+```
+
+```{r}
+top1_raw_loess <- rec_raw_loess %>% select(chrom, start, end, rec) %>% group_by(chrom) %>% arrange(chrom, start, end, desc(rec)) %>% filter(rec > quantile(rec, 0.99))
+```
+
+```{r}
+top10_raw_loess <- rec_raw_loess %>% select(chrom, start, end, rec) %>% group_by(chrom) %>% arrange(chrom, start, end, desc(rec)) %>% filter(rec > quantile(rec, 0.90))
+```
+
+```{r}
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap")
+write.table(top1_raw_loess, "top1_raw_loess.txt", quote = F, sep = "\t", col.names = F, row.names = F)
+write.table(top10_raw_loess, "top10_raw_loess.txt", quote = F, sep = "\t", col.names = F, row.names = F)
+```
+
+
+
+
+
+
+```{r}
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap/max_bedtools")
+
+win_2mb_rec <- read.table("max_4mb.bed", header = F) 
+
+```
+```{r}
+colnames(win_2mb_rec) <- c("chrom", "start", "end", "rec")
+win_2mb_rec[win_2mb_rec == "."] <- NA
+
+na_om_win2mb_rec <- na.omit(win_2mb_rec)
+```
+
+```{r}
+na_om_win2mb_rec$rec <- as.numeric(na_om_win2mb_rec$rec)
+abv_av_2mb_rec <- na_om_win2mb_rec %>% filter(rec > mean(rec_raw_loess$rec))
+```
+
+```{r}
+
+rec_means <- group_by(rec_raw_loess, chrom) %>% summarize(m=mean(rec))
+
+```
+
+
+```{r}
+filt_chr_means <- na_om_win2mb_rec %>% group_by(chrom) %>% filter(rec > mean(rec, na.rm = T)) %>% ungroup()
+```
+
+
+```{r}
+joined <- full_join(filt_chr_means, rec_raw_loess, by= c("chrom", "rec"))
+
+joined_na_om <- na.omit(joined)
+```
+
+
+```{r}
+diff_joined <- joined_na_om %>%
+    group_by(chrom) %>%
+    mutate(Diff = start.y - lag(start.y))
+
+```
+
+
+```{r}
+diff_joined <- diff_joined %>% replace_na(list(Diff = "beg"))
+
+diff_joined$is_first <- ifelse(diff_joined$Diff == "beg", "first", "not_first")
+
+diff_num <- diff_joined %>% mutate(Diff = na_if(Diff, "beg"))
+
+dif_filled <- diff_num %>% fill(Diff, .direction = "up")
+
+```
+
+
+```{r}
+cut_off <- 1000000
+
+diff_fixed <- dif_filled %>% replace_na(list(Diff = cut_off))
+
+```
+
+
+```{r}
+diff_fixed$remove <- ifelse(as.numeric(diff_fixed$Diff) >= cut_off, "no", "yes")
+
+```
+
+```{r}
+diff_eval_max <- diff_fixed %>%
+    group_by(chrom) %>%
+    mutate(bigger = rec - lag(rec))
+```
+
+```{r}
+diff_eval_max_filled <- diff_eval_max %>% fill(bigger, .direction = "up")
+eval_no_na <- diff_eval_max_filled %>% replace_na(list(bigger = 1))
+```
+
+
+```{r}
+eval_no_na$sign <- sign(eval_no_na$bigger)
+
+eval_no_na$sign[eval_no_na$sign == "0"] <- -1
+
+eval_no_na$word_sign <- ifelse(eval_no_na$sign == 1, "pos", "neg")
+
+```
+
+
+```{r}
+eval_no_na$con <- paste(eval_no_na$is_first,eval_no_na$remove,eval_no_na$word_sign, sep = "_")
+
+```
+
+
+```{r}
+rem_close <- eval_no_na[!(eval_no_na$con =="not_first_yes_neg" | eval_no_na$con == "first_yes_pos"),]
+
+```
+
+
+```{r}
+Bed_for_fisher <- rem_close[,c(1,5:6)]
+```
+
+```{r}
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap/max_bedtools")
+write.table(Bed_for_fisher, "peaks_4mb_max.txt", quote = F, sep = "\t", col.names = F, row.names = F)
+```
+
+
+```{r}
+
+table(rec_raw_loess$chrom)
+
+```
+
+```{r}
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/ELAI/OneDrive_1_3-2-2022/elai_output/elai_output/elai_plots/elai_avg10_plots")
+shared_tracks <- read.table("shared_F1_Tracks_genome.txt", header = T)
+```
+
+
+```{r}
+mg1 <- shared_tracks %>% filter(mg == "1")
+mg2 <- shared_tracks %>% filter(mg == "2")
+mg3 <- shared_tracks %>% filter(mg == "3")
+```
+
+```{r}
+min_length_mg1 <- mg1 %>% filter(length > 1)
+min_length_mg2 <- mg2 %>% filter(length > 1)
+min_length_mg3 <- mg3 %>% filter(length > 1)
+```
+
+```{r}
+min_length_mg1$count_samps <- count.fields(textConnection(min_length_mg1$samps), sep = ",")
+min_length_mg2$count_samps <- count.fields(textConnection(min_length_mg2$samps), sep = ",")
+min_length_mg3$count_samps <- count.fields(textConnection(min_length_mg3$samps), sep = ",")
+```
+
+```{r}
+at_least2_mg1 <- min_length_mg1 %>% filter(count_samps > 1)
+at_least2_mg2 <- min_length_mg2 %>% filter(count_samps > 1)
+at_least2_mg3 <- min_length_mg3 %>% filter(count_samps > 1)
+
+at_least3_mg1 <- min_length_mg1 %>% filter(count_samps > 2)
+at_least3_mg2 <- min_length_mg2 %>% filter(count_samps > 2)
+at_least3_mg3 <- min_length_mg3 %>% filter(count_samps > 2)
+
+at_least4_mg1 <- min_length_mg1 %>% filter(count_samps > 3)
+at_least4_mg2 <- min_length_mg2 %>% filter(count_samps > 3)
+at_least4_mg3 <- min_length_mg3 %>% filter(count_samps > 3)
+
+```
+
+
+
+```{r}
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap/")
+
+write.table(at_least2_mg1, file = "at_least2_mg1_shared_F1.txt", quote = F, col.names = T, row.names = F, sep = "\t")
+write.table(at_least3_mg1, file = "at_least3_mg1_shared_F1.txt", quote = F, col.names = T, row.names = F, sep = "\t")
+write.table(at_least4_mg1, file = "at_least4_mg1_shared_F1.txt", quote = F, col.names = T, row.names = F, sep = "\t")
+write.table(mg1, file = "at_least1_shared_F1.txt", quote = F, col.names = T, row.names = F, sep = "\t")
+```
+
+## sex specific
+
+```{r}
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap/mareymap_online_sex_specific")
+
+female_4mb_max <- read.table("max_female.bed", header = F)
+male_4mb_max <- read.table("max_male.bed", header = F)
+
+female_raw_rec <- read.table("no_na_female_sorted.bed", header = F)
+
+male_raw_rec <- read.table("no_na_male_sorted.bed", header = F)
+
+```
+
+```{r}
+colnames(female_4mb_max) <- c("chrom", "start", "end", "rec")
+colnames(male_4mb_max) <- c("chrom", "start", "end", "rec")
+
+colnames(female_raw_rec) <- c("chrom", "start", "end", "rec")
+colnames(male_raw_rec) <- c("chrom", "start", "end", "rec")
+
+female_4mb_max[female_4mb_max == "."] <- NA
+female_4mb_max_no_na <- na.omit(female_4mb_max)
+
+male_4mb_max[male_4mb_max == "."] <- NA
+male_4mb_max_no_na <- na.omit(male_4mb_max)
+
+```
+
+
+```{r}
+female_4mb_max_no_na$rec <- as.numeric(female_4mb_max_no_na$rec)
+male_4mb_max_no_na$rec <- as.numeric(male_4mb_max_no_na$rec)
+
+```
+
+```{r}
+rec_means_f <- group_by(female_raw_rec, chrom) %>% summarize(m=mean(rec))
+rec_means_m <- group_by(male_raw_rec, chrom) %>% summarize(m=mean(rec))
+
+
+```
+
+```{r}
+add_means_4mb_female <- full_join(female_4mb_max_no_na, rec_means_f, by = "chrom")
+add_means_4mb_male <- full_join(male_4mb_max_no_na, rec_means_m, by = "chrom")
+
+```
+
+```{r}
+add_means_4mb_female$rec <- as.numeric(add_means_4mb_female$rec)
+add_means_4mb_male$rec <- as.numeric(add_means_4mb_male$rec)
+
+filt_abv_avg_4mb_f <- add_means_4mb_female %>% filter(rec > m)
+filt_abv_avg_4mb_m <- add_means_4mb_male %>% filter(rec > m)
+```
+
+
+
+```{r}
+joined_f <- full_join(filt_abv_avg_4mb_f, female_raw_rec, by= c("chrom", "rec"))
+
+joined_na_om_f <- na.omit(joined_f)
+
+joined_m <- full_join(filt_abv_avg_4mb_m, male_raw_rec, by= c("chrom", "rec"))
+
+joined_na_om_m <- na.omit(joined_m)
+```
+
+
+```{r}
+order_fixed_f <- joined_na_om_f %>% group_by(chrom) %>% arrange(start.y, .by_group= TRUE)
+order_fixed_m <- joined_na_om_m %>% group_by(chrom) %>% arrange(start.y, .by_group= TRUE)
+
+diff_joined_f <- order_fixed_f %>%
+    group_by(chrom) %>%
+    mutate(Diff = start.y - lag(start.y))
+
+diff_joined_m <- order_fixed_m %>%
+    group_by(chrom) %>%
+    mutate(Diff = start.y - lag(start.y))
+```
+
+
+```{r}
+diff_joined_f <- diff_joined_f %>% replace_na(list(Diff = "beg"))
+
+diff_joined_f$is_first <- ifelse(diff_joined_f$Diff == "beg", "first", "not_first")
+
+diff_num_f <- diff_joined_f %>% mutate(Diff = na_if(Diff, "beg"))
+
+dif_filled_f <- diff_num_f %>% fill(Diff, .direction = "up")
+
+
+diff_joined_m <- diff_joined_m %>% replace_na(list(Diff = "beg"))
+
+diff_joined_m$is_first <- ifelse(diff_joined_m$Diff == "beg", "first", "not_first")
+
+diff_num_m <- diff_joined_m %>% mutate(Diff = na_if(Diff, "beg"))
+
+dif_filled_m <- diff_num_m %>% fill(Diff, .direction = "up")
+
+```
+
+
+```{r}
+cut_off <- 1000000
+
+diff_fixed_f <- dif_filled_f %>% replace_na(list(Diff = cut_off))
+diff_fixed_m <- dif_filled_m %>% replace_na(list(Diff = cut_off))
+```
+
+
+```{r}
+diff_fixed_f$remove <- ifelse(as.numeric(diff_fixed_f$Diff) >= cut_off, "no", "yes")
+diff_fixed_m$remove <- ifelse(as.numeric(diff_fixed_m$Diff) >= cut_off, "no", "yes")
+
+```
+
+```{r}
+diff_eval_max_f <- diff_fixed_f %>%
+    group_by(chrom) %>%
+    mutate(bigger = rec - lag(rec))
+
+
+diff_eval_max_m <- diff_fixed_m %>%
+    group_by(chrom) %>%
+    mutate(bigger = rec - lag(rec))
+
+```
+
+```{r}
+diff_eval_max_filled_f <- diff_eval_max_f %>% fill(bigger, .direction = "up")
+eval_no_na_f <- diff_eval_max_filled_f %>% replace_na(list(bigger = 1))
+
+diff_eval_max_filled_m <- diff_eval_max_m %>% fill(bigger, .direction = "up")
+eval_no_na_m <- diff_eval_max_filled_m %>% replace_na(list(bigger = 1))
+```
+
+
+```{r}
+eval_no_na_f$sign <- sign(eval_no_na_f$bigger)
+
+eval_no_na_f$sign[eval_no_na_f$sign == "0"] <- -1
+
+eval_no_na_f$word_sign <- ifelse(eval_no_na_f$sign == 1, "pos", "neg")
+
+
+eval_no_na_m$sign <- sign(eval_no_na_m$bigger)
+
+eval_no_na_m$sign[eval_no_na_m$sign == "0"] <- -1
+
+eval_no_na_m$word_sign <- ifelse(eval_no_na_m$sign == 1, "pos", "neg")
+```
+
+
+```{r}
+eval_no_na_f$con <- paste(eval_no_na_f$is_first,eval_no_na_f$remove,eval_no_na_f$word_sign, sep = "_")
+
+eval_no_na_m$con <- paste(eval_no_na_m$is_first,eval_no_na_m$remove,eval_no_na_m$word_sign, sep = "_")
+```
+
+
+```{r}
+rem_close_f <- eval_no_na_f[!(eval_no_na_f$con =="not_first_yes_neg" | eval_no_na_f$con == "first_yes_pos"),]
+
+rem_close_m <- eval_no_na_m[!(eval_no_na_m$con =="not_first_yes_neg" | eval_no_na_m$con == "first_yes_pos"),]
+
+```
+
+```{r}
+Bed_for_fisher_f <- rem_close_f[,c(1,6:7)]
+Bed_for_fisher_m <- rem_close_m[,c(1,6:7)]
+```
+
+```{r}
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/mareyMap/mareymap_online_sex_specific")
+write.table(Bed_for_fisher_f, "female_peaks_4mb_max.txt", quote = F, sep = "\t", col.names = F, row.names = F)
+write.table(Bed_for_fisher_m, "male_peaks_4mb_max.txt", quote = F, sep = "\t", col.names = F, row.names = F)
+```
+
+
+
+
+
+
+
+

@@ -1,0 +1,119 @@
+---
+title: "LinkMapView Plots"
+author: "Kate Stankiewicz"
+date: "5/1/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load libraries
+library(LinkageMapView)
+library(ggplot2)
+library(dplyr)
+library(stringr)
+
+```
+
+```{r}
+#set the wd
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/redo_LM")
+
+# read in the gamete-specific and sex averaged maps
+sexav <- read.table("sex_avg_MM.txt", header = T)
+
+female <- read.table("female_sw_mm.txt", header = T)
+
+male <- read.table("male_sw_MM.txt", header = T)
+```
+
+```{r}
+# reformt each for LinkMapView
+
+#first add LG id numbers
+sa_LG <- sexav %>% mutate(LG = case_when(
+  map == "hic_scaffold_4" ~ "LG1",
+  map == "hic_scaffold_10" ~ "LG2",
+  map == "hic_scaffold_2" ~ "LG3",
+  map == "hic_scaffold_35" ~ "LG4",
+  map == "hic_scaffold_17" ~ "LG5",
+  map == "hic_scaffold_20" ~ "LG6",
+  map == "hic_scaffold_30" ~ "LG7",
+  map == "hic_scaffold_1" ~ "LG8",
+  map == "hic_scaffold_31" ~ "LG9",
+  map == "hic_scaffold_15" ~ "LG10",
+  map == "hic_scaffold_6" ~ "LG11",
+  map == "hic_scaffold_5" ~ "LG12",
+  map == "hic_scaffold_21" ~ "LG13",
+  map == "hic_scaffold_11" ~ "LG14"
+))
+
+f_LG <- female %>% mutate(LG = case_when(
+  map == "hic_scaffold_4" ~ "LG1",
+  map == "hic_scaffold_10" ~ "LG2",
+  map == "hic_scaffold_2" ~ "LG3",
+  map == "hic_scaffold_35" ~ "LG4",
+  map == "hic_scaffold_17" ~ "LG5",
+  map == "hic_scaffold_20" ~ "LG6",
+  map == "hic_scaffold_30" ~ "LG7",
+  map == "hic_scaffold_1" ~ "LG8",
+  map == "hic_scaffold_31" ~ "LG9",
+  map == "hic_scaffold_15" ~ "LG10",
+  map == "hic_scaffold_6" ~ "LG11",
+  map == "hic_scaffold_5" ~ "LG12",
+  map == "hic_scaffold_21" ~ "LG13",
+  map == "hic_scaffold_11" ~ "LG14"
+))
+
+m_LG <- male %>% mutate(LG = case_when(
+  map == "hic_scaffold_4" ~ "LG1",
+  map == "hic_scaffold_10" ~ "LG2",
+  map == "hic_scaffold_2" ~ "LG3",
+  map == "hic_scaffold_35" ~ "LG4",
+  map == "hic_scaffold_17" ~ "LG5",
+  map == "hic_scaffold_20" ~ "LG6",
+  map == "hic_scaffold_30" ~ "LG7",
+  map == "hic_scaffold_1" ~ "LG8",
+  map == "hic_scaffold_31" ~ "LG9",
+  map == "hic_scaffold_15" ~ "LG10",
+  map == "hic_scaffold_6" ~ "LG11",
+  map == "hic_scaffold_5" ~ "LG12",
+  map == "hic_scaffold_21" ~ "LG13",
+  map == "hic_scaffold_11" ~ "LG14"
+))
+
+# subset each for LMV
+sexav_subset <- sa_LG %>% select(LG, gen, mkr)
+female_subset <- f_LG %>% select(LG, gen, mkr)
+male_subset <- m_LG %>% select(LG, gen, mkr)
+```
+
+```{r}
+#reorder the cM position to be ascending in each LG
+sexav_ordered <- sexav_subset %>% group_by(LG) %>% arrange(gen, .by_group = T)
+fem_ordered <- female_subset %>% group_by(LG) %>% arrange(gen, .by_group = T)
+mal_ordered <- male_subset %>% group_by(LG) %>% arrange(gen, .by_group = T)
+
+# reorder the LGs column to be numerical
+sa_final <- sexav_ordered[order(as.numeric(substr(sexav_ordered$LG, 3, nchar(sexav_ordered$LG)))), ]
+f_final <- fem_ordered[order(as.numeric(substr(fem_ordered$LG, 3, nchar(fem_ordered$LG)))), ]
+m_final <- mal_ordered[order(as.numeric(substr(mal_ordered$LG, 3, nchar(mal_ordered$LG)))), ]
+
+# make them numeric
+sa_final$gen <- as.numeric(as.character(sa_final$gen))
+f_final$gen <- as.numeric(as.character(f_final$gen))
+m_final$gen <- as.numeric(as.character(m_final$gen))
+```
+
+```{r}
+setwd("C:/Users/kholl/Documents/local_ancestry_hybrids/linkage_maps/Apalm/LepWrap_res/Apalm_ref_vcf/redo_LM")
+# create a LinkMapView plot for each
+lmv.linkage.plot(sa_final, "sex_averag_LMV_plot.pdf", denmap = T)
+lmv.linkage.plot(f_final, "female_LMV_plot.pdf", denmap = T)
+lmv.linkage.plot(m_final, "male_LMV_plot.pdf", denmap = T)
+
+```
+

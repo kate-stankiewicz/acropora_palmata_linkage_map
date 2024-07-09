@@ -1,0 +1,116 @@
+---
+title: "analyze_recomb_rate"
+author: "Kate Stankiewicz"
+date: "3/2/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(ggplot2)
+library(reshape)
+library(dplyr)
+library(tidyr)
+library(stringr)
+```
+
+
+```{r}
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\ELAI\\ELAI_res")
+
+dosage_list = list.files(path="C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\ELAI\\ELAI_res", pattern = "noR_no_head_*", full.names = F )
+
+dosage <- lapply(dosage_list, function(x) read.table(x))
+
+names(dosage) <- gsub("noR_no_head_avg_hic_scaffold_","", dir(pattern = "noR_no_head_*"), fixed = TRUE)
+names(dosage) <- gsub("_mg1.txt","", names(dosage), fixed = TRUE)
+
+snp_list <- list.files(path="C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\ELAI\\ELAI_res", pattern = "*.snpinfo.txt", full.names = F )
+snps <- lapply(snp_list, function(x) read.table(x, header= T))
+names(snps) <- gsub("_1_1.snpinfo.txt","", dir(pattern = "*.snpinfo.txt"), fixed = TRUE)
+```
+
+
+```{r}
+snps_cut <- lapply(snps, function(x) x[c("pos")])
+
+dosage_t <- lapply(dosage, function(x) as.data.frame(t(x)))
+```
+
+```{r}
+hybr_sampIDs<-c("13704","13706","13736","13748","13762","1834","13764","1837","1839","13782","13821","13823","13833","13843","13807","13778","6779","6791","8939","13913","1303","1667")
+
+for (i in seq_along(dosage_t)){
+  colnames(dosage_t[[i]]) <- hybr_sampIDs
+}
+```
+
+
+```{r}
+hyb_only <- lapply(dosage_t, function(x) x[, -which(names(x) %in% c("1839","1667"))])
+
+```
+
+
+```{r}
+
+hy_palm_dosage_chr <- lapply(hyb_only, function(x) x[c(TRUE, FALSE),])
+hy_cerv_dosage_chr <- lapply(hyb_only, function(x) x[c(FALSE, TRUE),])
+hy_avg_palm_dos_chr <- lapply(hy_palm_dosage_chr, function(x) as.data.frame(rowMeans(x)))
+hy_avg_cerv_dos_chr <- lapply(hy_cerv_dosage_chr, function(x) as.data.frame(rowMeans(x)))
+
+for (i in seq_along(hy_avg_palm_dos_chr)){
+  colnames(hy_avg_palm_dos_chr[[i]]) <- c("palm")
+}
+
+for (i in seq_along(hy_avg_cerv_dos_chr)){
+  colnames(hy_avg_cerv_dos_chr[[i]]) <- c("cerv")
+}
+
+avg_palm_dos_pos <- mapply(cbind, snps_cut, hy_avg_palm_dos_chr, SIMPLIFY=F)
+avg_cerv_dos_pos <- mapply(cbind, snps_cut, hy_avg_cerv_dos_chr, SIMPLIFY=F)
+
+```
+
+
+```{r}
+for (i in seq(avg_palm_dos_pos)){
+  avg_palm_dos_pos[[i]]$chr <- names(avg_palm_dos_pos[i])
+  
+}
+
+for (i in seq(avg_cerv_dos_pos)){
+  avg_cerv_dos_pos[[i]]$chr <- names(avg_cerv_dos_pos[i])
+  
+}
+```
+
+```{r}
+all_avg_dosage_palm <- do.call("rbind", avg_palm_dos_pos)
+all_avg_dosage_cerv <- do.call("rbind", avg_cerv_dos_pos)
+```
+
+```{r}
+all_avg_dosage_palm$end <- all_avg_dosage_palm$pos
+all_avg_dosage_cerv$end <- all_avg_dosage_cerv$pos
+
+palm_bed <- all_avg_dosage_palm[c("chr", "pos", "end", "palm")]
+cerv_bed <- all_avg_dosage_cerv[c("chr", "pos", "end", "cerv")]
+
+```
+
+
+```{r}
+setwd("C:\\Users\\kholl\\Documents\\local_ancestry_hybrids\\linkage_maps\\Apalm\\LepWrap_res\\Apalm_ref_vcf\\ELAI\\ELAI_res")
+write.table(palm_bed, file= "palm_hyb_avg_dosage.bed", sep = "\t", quote = F, col.names = F, row.names = F)
+write.table(cerv_bed, file= "cerv_hyb_avg_dosage.bed", sep = "\t", quote = F, col.names = F, row.names = F)
+
+```
+
+
+
+
